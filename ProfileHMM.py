@@ -1,4 +1,5 @@
 from HMM import *
+from math import log
 
 
 class _AligmentX:
@@ -158,3 +159,82 @@ class ProfileHMM(HMM):
             emit_row[:] = [character + pseu for character in emit_row]
 
         self.normalize_matrix()
+
+    def optimal_hidden_path(self, x: list[str]) -> list[str]:
+        dynamic_path: list[list[float]] = []
+        trace: list[list[int]] = []  # 0 <=> M, 1 <=> D, 2 <=> I
+
+        # Khu khởi tạo giá trị
+        for _ in range(len(self.hidden_states) - 2):
+            dynamic_path.append([-float('inf')] * (len(x) + 1))
+            trace.append([-1] * (len(x)+1))
+
+        # Tính bảng theo thứ tự tô-pô (cột đầu, gồm các D)
+        dynamic_path[0][0] = 0
+        dynamic_path[2][0] = log(self.transition[0][3])
+        trace[2][0] = 2
+        for i in range(5, len(dynamic_path), 3):
+            dynamic_path[i][0] = dynamic_path[i-3][0] + \
+                log(self.transition[i-2][i+1])
+            trace[i][0] = 1
+
+        # Tính bảng theo thứ tự tô-pô (những cột còn lại)
+        for i in range(1, len(x)+1):
+            index_character = self.find_character_index(x[i-1])
+
+            # Hàng I0
+            dynamic_path[0][i] = dynamic_path[0][i-1] + \
+                log(self.transition[0 if i == 1 else 1][1]) + \
+                log(self.emission[1][index_character])
+            trace[0][i] = 2
+            # Hàng M1
+            dynamic_path[1][i] = dynamic_path[0][i-1] + \
+                log(self.transition[0 if i == 1 else 1][2]) + \
+                log(self.emission[2][index_character])
+            trace[1][i] = 2
+            # Hàng D1
+            dynamic_path[2][i] = dynamic_path[0][i] + \
+                log(self.transition[1][3])
+            trace[2][i] = 2
+
+            # Những hàng còn lại
+            for j in range(3, len(dynamic_path)):
+                compares: list[float] = []
+                if j % 3 == 0:      # [j][i] = I
+                    for k in range(j-2, j+1):
+                        compares.append(
+                            dynamic_path[k][i-1] + log(self.transition[k+1][j+1]) + log(self.emission[j+1][index_character]))
+                elif j % 3 == 1:    # [j][i] = M
+                    for k in range(j-3, j):
+                        compares.append(
+                            dynamic_path[k][i-1] + log(self.transition[k+1][j+1]) + log(self.emission[j+1][index_character]))
+                else:               # [j][i] = D
+                    for k in range(j-4, j-1):
+                        compares.append(
+                            dynamic_path[k][i] + log(self.transition[k+1][j+1]))
+                dynamic_path[j][i] = max(compares)
+                trace[j][i] = compares.index(dynamic_path[j][i])
+
+        # Khu truy vết
+        compares: list[float] = []
+        compares.append(dynamic_path[-3][-1]+log(self.transition[-4][-1]))  # Mx -> E
+        compares.append(dynamic_path[-2][-1]+log(self.transition[-3][-1]))  # Dx -> E
+        compares.append(dynamic_path[-1][-1]+log(self.transition[-2][-1]))  # Ix -> E
+
+        trace_int: list[int] = []
+        pointer_x: int = len(x)
+        pointer_y: int = len(dynamic_path) - 3 + compares.index(max(compares))
+        while pointer_x or pointer_y:
+            trace_int.append(pointer_y + 1)
+            previous_step: int = trace[pointer_y][pointer_x]
+            if pointer_y % 3 == 0:      # I
+                pointer_y = pointer_y - 2 + previous_step
+                pointer_x = pointer_x - 1
+            elif pointer_y % 3 == 1:    # M
+                pointer_y = pointer_y - 3 + previous_step
+                pointer_x = pointer_x - 1
+            else:                       # D
+                pointer_y = pointer_y - 4 + previous_step
+                pointer_x = pointer_x - 0
+
+        return [self.hidden_states[s] for s in trace_int[::-1]]
