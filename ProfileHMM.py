@@ -74,9 +74,9 @@ class ProfileHMM(HMM):
         self.add_pseudocounts(pseu)
 
     def __str__(self) -> str:
-        states: str = "\t".join(self.hidden_states)
+        states: str = "\t\t".join(self.hidden_states)
         trans: str = ""
-        alphabets: str = "\t".join(self.alphabet)
+        alphabets: str = "\t\t".join(self.alphabet)
         emits: str = ""
         for i in range(len(self.transition)):
             trans += "{0}\t{1}\n".format(self.hidden_states[i], "\t".join(
@@ -141,13 +141,13 @@ class ProfileHMM(HMM):
         for j in range(2):
             for k in range(1, 4):
                 self.transition[j][k] += pseu
-        for i in range(1, len(self.aligment_x.alphabet)):
+        for i in range(1, self.aligment_x.aligment_choice.count(True)):
             for j in range(3*i-1, 3*i+2):
                 for k in range(3*i+1, 3*i+4):
                     self.transition[j][k] += pseu
         for j in range(-2, -5, -1):
             for k in range(-1, -3, -1):
-                self.transition[j][k] = pseu
+                self.transition[j][k] += pseu
 
         # pseudocounts for emissions
         for i in range(len(self.transition)-1):
