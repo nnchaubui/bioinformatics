@@ -106,6 +106,7 @@ class ProfileHMM(HMM):
         return kq
 
     def get_tran_and_emit(self) -> None:
+        '''Tính bảng xác suất chuyển trạng thái và xác suất sinh chữ từ aligment đã có sẵn (chỉ dùng trong `__init__`)'''
         for align_row in self.aligment_x.aligment_table:
             path_row: list[str] = self.hidden_path_from_align(align_row)
             for _character, _state in zip(align_row, path_row):
